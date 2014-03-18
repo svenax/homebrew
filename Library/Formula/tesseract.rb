@@ -1,5 +1,8 @@
 require 'formula'
 
+# Tweaks to the formula to properly build Tesseract 3.03, which currently is
+# the HEAD version. 3.03 will be released shortly, and then there will
+# probably be official support for this.
 class Tesseract < Formula
   homepage 'http://code.google.com/p/tesseract-ocr/'
   url 'https://tesseract-ocr.googlecode.com/files/tesseract-ocr-3.02.02.tar.gz'
@@ -11,12 +14,19 @@ class Tesseract < Formula
     depends_on :autoconf
     depends_on :automake
     depends_on :libtool
+
+    depends_on 'cairo'
+    depends_on 'icu4c'
+    depends_on 'pango'
+
+    patch :DATA
   end
 
+  option "training", "Install training tools (Only for HEAD version)"
   option "all-languages", "Install recognition data for all languages"
 
   depends_on 'libtiff'
-  depends_on 'leptonica'
+  depends_on 'leptonica'  # HEAD version needs leptonica 1.70 (HEAD)
 
   fails_with :llvm do
     build 2206
@@ -94,6 +104,12 @@ class Tesseract < Formula
     system './autogen.sh' if build.head?
     system "./configure", "--disable-dependency-tracking", "--prefix=#{prefix}"
     system "make install"
+    if build.include? "training"
+      ENV['homebrew_prefix'] = HOMEBREW_PREFIX
+      ENV['glib_prefix'] = "/usr/local/Cellar/glib/2.38.2"
+      system "make training-install"
+    end
+
     if build.include? "all-languages"
       install_language_data
     else
@@ -111,3 +127,20 @@ class Tesseract < Formula
     end
   end
 end
+
+__END__
+--- a/training/Makefile.am	(revision 1054)
++++ b/training/Makefile.am	(working copy)
+@@ -5,7 +5,11 @@
+     -I$(top_srcdir)/viewer \
+     -I$(top_srcdir)/textord -I$(top_srcdir)/dict \
+     -I$(top_srcdir)/classify -I$(top_srcdir)/display \
+-    -I$(top_srcdir)/wordrec -I$(top_srcdir)/cutil
++    -I$(top_srcdir)/wordrec -I$(top_srcdir)/cutil \
++    -I$(homebrew_prefix)/include/cairo \
++    -I$(homebrew_prefix)/include/pango-1.0 \
++    -I$(glib_prefix)/include/glib-2.0 \
++    -I$(glib_prefix)/lib/glib-2.0/include
+
+ if MINGW
+ # try static build
